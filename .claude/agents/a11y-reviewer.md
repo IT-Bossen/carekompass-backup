@@ -16,6 +16,7 @@ magnification, or work in clinical settings where one-handed/glove-aware UX matt
 - **`docs/03 §6.2`** — design principles include densitet och tangenttbindningar; status-färger följs alltid av ikon eller text.
 - **`docs/03 §11`** — every list view handles loading / error / empty / data states (a11y matters: `aria-busy`, focus management when content swaps).
 - **`docs/06 §8.3`** — out of scope: WCAG AAA, teckenspråk, egen TTS. Don't flag what's deliberately out of scope.
+- **`docs/10-design-spec.md`** — design spec with concrete a11y-relevant decisions: `§3` typography (mobile H1 = 20–24px; minimum body 14px), `§5` component patterns (input height 32px desktop / **48px mobile**; button height 32 / `--lg` 40 / **44–56px on mobile primary**), `§7` AppShell layout (sidebar 232px, sticky 56px topbar), `§8` mobile conventions (44px tab-bar touch targets, sticky bottom action bar above tab bar, large topbar variant), and `§14` design decisions to verify against a11y (e.g. severity-knappar i avvikelse-form — colored touch-buttons; PDL-disclaimer banner — risk att kunden blint klickar bort den).
 
 ## When to run
 

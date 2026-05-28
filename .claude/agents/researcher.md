@@ -24,6 +24,7 @@ Typical asks:
 - "What's the existing convention for Z?" — a route, hook, server function, form, migration, RLS pattern, edge function (`docs/03`, `02`, `06`).
 - "Does feature W already exist or partially exist?" — check the code first, then `docs/04` for phase status, then `docs/07 §8` for v4→v6 parity inventory.
 - "What's decided / still open about X?" — `docs/09` (20 answers + 6 open 🟢).
+- "What does the design look like for Z?" — `docs/10-design-spec.md` (§3 type / §4 color / §5 components / §7 desktop layout / §8 mobile / §10 screen→route traceability / §14 open design decisions) and the visual artifact in `design/`.
 
 ## ⚠️ v6 is greenfield — confirm what's actually built
 
