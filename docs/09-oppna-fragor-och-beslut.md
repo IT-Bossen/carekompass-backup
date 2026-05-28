@@ -1,6 +1,6 @@
 # CareKompass v6.0 — Öppna frågor & beslut
 
-> **Datum för senaste uppdatering:** 2026-05-27
+> **Datum för senaste uppdatering:** 2026-05-28
 > **Serie:** 01-system-spec · 02-database-api · 03-frontend-guide · 04-implementation-plan · 05-domain-content · 06-conventions · 07-v4-mapping-and-overrides · 08-public-and-admin · **09-oppna-fragor-och-beslut**
 > **Status:** 20/26 frågor besvarade. **6 öppna frågor återstår — alla 🟢 (innehåll & affär), defaultbara, blockerar ingen fas-start.**
 
@@ -184,6 +184,7 @@ Besluten nedan är redan inarbetade i respektive doc. Här som kompakt spårbar 
 | 2026-05-28 | 21b | **Lovable-sandbox-drift incident + fix.** Commit `16ccc8f` raderade oavsiktligt design/ + docs/10 + agent docs/10-referenser p.g.a. drift mellan Lovables sandbox och GitHub: Lovables nästa edit full-snapshot-pushade en pre-Claude-state och överskrev tyst tillbaka. Återställt via `3bb47c8`. **Branch protection på main aktiverat 2026-05-28** (Toni i GitHub UI) — Lovables sandbox-push får nu conflict istället för silent overwrite. Framtida flöde för alla externa committers (Claude Code, Lovable, människa): feature-branch → PR → status-checks → merge. Direct push till main är blockerat även för bot-konton. | 06 §4.5; commits 16ccc8f, 6e0390d, 3bb47c8 |
 | 2026-05-28 | 22 | **types.ts auto-regen i workflow** (godkänt av Toni 2026-05-28). Auto-genererar `src/integrations/supabase/types.ts` efter applicerad migration och commit:ar tillbaka. Sluter loopen så type-säkerhet inte drar isär från schemat. Risk: en extra commit per migration; fördel: ingen manuell `bunx supabase gen types typescript`. | .github/workflows/migration-drift-check.yml |
 | 2026-05-28 | 23 | **GRANT-mönster i migrationsmallar** följer Lovables `<public-schema-grants>`-block. Lovables säkerhetsskanner körs **inte** på auto-applicerade migreringar, så grants är vårt ansvar att skriva korrekt — utan dem får Supabase REST/Realtime runtime-fel. Exakt block väntar på copy-paste från Lovables system prompt; tills dess gäller standard Supabase-mönster: `GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role` + `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ...` + per-tabell `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated`. Uppdateras till Lovables exakta version när vi har den. | 02 §12, .claude/agents/backend-builder.md |
+| 2026-05-28 | 24 | **Fas 0 levererad** (commit `36cc07e`). Alla AC1–AC6 met. Pipeline: researcher → spec-writer → architect (⚠ 7 edits applied) → backend+frontend builders parallel → test-verifier + security-reviewer + a11y-reviewer → validator ✅ Ship with follow-ups. Inga blockers. 8 Fas 1-followups: (1) `auditLog` stub throw, (2) vitest+Playwright install, (3) shadcn Button `h-9→h-11` mobile, (4) shadcn `ring-1→ring-2`, (5) error-page.ts svenska + oklch, (6) accept-invite/inspect screen-reader-redundans, (7) ADR Decision/Consequences-content (Toni), (8) `src/routes/index.tsx` Lovable placeholder → marknadsföring landing Fas 5. | docs/04 §2.2–§2.3, docs/specs/fas-0-bootstrap.md, commits c07d280..36cc07e |
 
 ---
 
@@ -200,4 +201,4 @@ Besluten nedan är redan inarbetade i respektive doc. Här som kompakt spårbar 
 
 ---
 
-*Uppdaterad 2026-05-27. 20/26 besvarade (se beslutslogg). 6 öppna 🟢-frågor kvar — inga blockerar fas-start.*
+*Uppdaterad 2026-05-28. 20/26 besvarade (se beslutslogg). 6 öppna 🟢-frågor kvar — inga blockerar fas-start. Fas 0 levererad (se §24 i beslutslogg), v6 går in i Fas 1.*

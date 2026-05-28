@@ -23,7 +23,7 @@ audit (7 års retention).
   - **AI** via **Lovable AI Gateway** (Gemini `flash-preview` + `2.5-pro`) — no own `AI_API_KEY` secret.
   - **Payments** via **Lovable Stripe-payments** (`enable_stripe_payments`) — no own Stripe webhook, no own `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`.
   - **Onboarding** default = **auto-trial** (Läge B, 14 days, all Pro modules on); manual approval (Läge A) is a feature-flag spärr.
-- **v6 is greenfield.** The Supabase schema (`src/integrations/supabase/types.ts`) is empty, `supabase/migrations/` doesn't exist yet, most modules/pages/hooks aren't built, and `src/routes/index.tsx` is still a Lovable placeholder. The docs describe the **target**; **verify against the actual code** before relying on anything.
+- **v6 is in Fas 1 (greenfield).** Fas 0 scaffolding is complete — `src/integrations/supabase/types.ts` exists (empty schema), `src/lib/_helpers.ts` establishes `ApiResult`/`createApiHandler`, `/health` proves the SSR+createServerFn+Query pattern. `supabase/migrations/` doesn't exist yet, most modules/pages/hooks aren't built, and `src/routes/index.tsx` is still a Lovable placeholder. The docs describe the **target**; **verify against the actual code** before relying on anything.
 - **Open product questions live in `docs/09-oppna-fragor-och-beslut.md`** — 20/26 answered, 6 open (all 🟢 innehåll & affär, defaultable, block no phase).
 
 ## Stack & commands
@@ -67,10 +67,10 @@ See `docs/07 §5` for the full v4→v6 edge-function mapping.
 **Standardized API response (always):**
 ```ts
 type ApiResult<T> =
-  | { ok: true;  data: T; request_id: string; meta?: Record<string, unknown> }
+  | { ok: true;  data: T; request_id: string; meta?: Record<string, JsonValue> }
   | { ok: false; error: string; error_code?: string; request_id: string; field_errors?: Record<string, string> }
 ```
-`error_code` is machine-readable (`version_conflict`, `forbidden`, `feature_disabled`, `subscription_read_only`, `validation_failed`, `internal`); the client maps it to a Swedish toast via `translateError()` (`docs/06 §12`). Server-fn handlers never throw to the client — wrap in `createApiHandler`.
+`meta` uses `JsonValue` (not `unknown`) — TanStack Start validates server-fn return values are JSON-serializable at compile time. `JsonValue` is defined in `src/lib/_helpers.ts:17`. `error_code` is machine-readable (`version_conflict`, `forbidden`, `feature_disabled`, `subscription_read_only`, `validation_failed`, `internal`); the client maps it to a Swedish toast via `translateError()` (`docs/06 §12`). Server-fn handlers never throw to the client — wrap in `createApiHandler`.
 
 ## Multi-tenant + auth + RLS
 
@@ -118,7 +118,7 @@ type ApiResult<T> =
 
 ## Phase status
 
-v6 is in **Fas 0** (Bootstrap & arkitektur-fundament). See `docs/04 §2` for the Fas 0 acceptance and the verbatim Claude Code prompt. Order: Fas 0 → 1 (multi-tenant + RBAC + onboarding) → 2 (documents + deviations) → 3 (medications + orders/delegations) → 4 (hygiene + risk) → 5 (compliance + admin tools) → 6 (staff & legitimation) → 7 (Stripe activation) → 8 (treatment log, PDL-gated) → 9 (rentals/external) → 10 (BankID + BokaDirekt).
+**Fas 0 levererad** (commit `36cc07e`, 2026-05-28 — validator ✅ Ship with follow-ups, alla AC1–AC6 met). v6 går in i **Fas 1** (multi-tenant + RBAC + onboarding). See `docs/04 §2` for the Fas 0 acceptance and `docs/09 §24` for the delivery record and 8 Fas 1 follow-ups. Order: ~~Fas 0~~ → **Fas 1** (multi-tenant + RBAC + onboarding) → 2 (documents + deviations) → 3 (medications + orders/delegations) → 4 (hygiene + risk) → 5 (compliance + admin tools) → 6 (staff & legitimation) → 7 (Stripe activation) → 8 (treatment log, PDL-gated) → 9 (rentals/external) → 10 (BankID + BokaDirekt).
 
 ## Docs index
 
