@@ -260,46 +260,65 @@ Lovable Cloud / Cloudflare Pages ger automatisk preview-URL per PR. Format: `pr-
 - RLS-policies för en tabell ligger i samma migration som tabellen
 - Seeds i separata `seed_*`-migrationer
 
-### 4.2 Workflow
+### 4.2 Workflow — auto-apply via GitHub Action
+
+Sedan 2026-05-28 (beslut 09 §21) applicerar `.github/workflows/migration-drift-check.yml` migrationerna **automatiskt** mot Lovable Cloud-DB:n vid merge till `main`. Manuell deploy-trigger via dashboard är **inte längre** flödet.
 
 ```
-1. Utvecklare skapar migration lokalt
-   → bunx supabase migration new <namn>
-   → skriver SQL
-2. Lokal körning
-   → bunx supabase db reset (re-skapar lokal DB med alla migrationer)
-   → bunx supabase db push (pushar mot lokal Supabase)
-3. Regenerera typer
-   → bunx supabase gen types typescript > src/types/supabase.ts
-4. PR mot develop
-   → CI kör migrations mot ephemeral staging-DB-snapshot
-   → CI verifierar att RLS-tester fortfarande passerar
-5. Merge till develop
-   → Manuell migrations-deploy mot staging via .github/workflows/migrations.yml
-   → Toni triggar workflow med "target=staging"
-6. Verifiering i staging i minst 24h
-7. Release till main
-   → Manuell migrations-deploy mot production
-   → Toni triggar workflow med "target=production"
-   → Förkrav: manuell backup-snapshot via Supabase Dashboard
+1. Utvecklare (Claude Code / Lovable / människa) skapar migration på feature-branch
+   → fil: supabase/migrations/<YYYYMMDDHHMMSS>_<snake_case>.sql
+   → skriver SQL inkl. RLS + GRANTs (Lovables <public-schema-grants>-mönster)
+2. Lokal körning (rekommenderad men ej tvingad)
+   → bunx supabase start (lokal DB)
+   → bunx supabase db push (mot lokal Supabase) → kör RLS-tester
+3. Push branch + öppna PR mot main
+   → workflow:n triggas i dry-run-läge
+   → kommenterar PR:n med vilka migreringar som kommer appliceras
+   → db-guardian-agent granskar PR (post-spec, PRE-merge — sista chansen att stoppa)
+4. Merge till main (kräver branch protection — se §4.5)
+   → workflow:n applicerar pending migreringar i timestamp-ordning
+   → varje migration: BEGIN; <SQL>; INSERT INTO supabase_migrations.schema_migrations(version) VALUES (...); COMMIT;
+   → atomic per fil — halvkörda migreringar finns inte
+   → types.ts auto-regenereras (när Lovable-flagga aktiverad) och commitas tillbaka
+5. Fel under apply
+   → workflow:n stoppar resten av batchen, öppnar GitHub-issue (labels: migrations, automated, failed)
+   → redan-applicerade migreringar i batchen är permanenta (committade)
+   → fix: rätta SQL i ny migration-fil och pusha igen
 ```
 
 ### 4.3 Rollback-strategi
 
-- Aldrig auto-rollback av migrationer (för riskabelt)
-- Vid produktion-fel: skriv reverse-migration som `YYYYMMDDHHMMSS_revert_<original>.sql`
-- För destruktiva fall (column drop): pre-deployment snapshot från Supabase Dashboard
+- **Aldrig auto-rollback** — applicerade migreringar är permanenta.
+- Vid produktion-fel: skriv reverse-migration `YYYYMMDDHHMMSS_revert_<original>.sql` (ny fil, inte edit av den ursprungliga) och kör genom samma PR → merge → auto-apply-flöde.
+- För destruktiva fall (DROP COLUMN/TABLE): se §4.4 — kräver ADR + branch protection förhindrar att Claude Code/Lovable kan push:a förbi review.
+- Backup: Supabase daily backups + PITR (06 §13) är fortfarande disaster-recovery-vägen om en migration korrumperar data.
 
-### 4.4 Destruktiva förändringar
+### 4.4 Destruktiva förändringar — nu med auto-apply-risk
 
-Kräver explicit godkännande:
+Auto-apply gör destruktiva ändringar **oåterkalleliga sekunder efter merge**. Process:
+
 - DROP COLUMN
 - DROP TABLE
 - Ändra kolumn-typ
 - Borttagning av enum-värden
 - Borttagning av RLS-policy (utan ersättning)
 
-Process: skriv ADR, vänta 24h, exekvera. Inget akut-godkännande för dessa.
+Krav:
+1. **ADR** i `docs/decisions/NNNN-*.md` enligt 06 §14 — context + decision + consequences
+2. **24h cooling** mellan PR öppnas och merge — ger reviewers tid att invända
+3. **Branch protection på main** (§4.5) är nu **obligatoriskt** — utan det kan både Claude Code och Lovable push:a förbi review (eller silent-delete via sandbox-drift, jfr 09 §21 root-cause)
+4. **Manuell Supabase backup-snapshot** via Dashboard innan merge, dokumenterat i PR-beskrivningen
+
+### 4.5 Branch protection på `main` (obligatoriskt med auto-apply)
+
+Settings → Branches → Branch protection rule för `main`:
+- Require pull request before merging (1 approver)
+- Require status checks to pass — `migration-drift-check / Detect and apply pending migrations` (dry-run på PR)
+- Require branches to be up to date before merging
+- Restrict pushes — inkludera bot-konton (gpt-engineer-app-bot) så Lovable inte kan push:a direkt
+- Do not allow bypassing the above settings — gäller även admin
+
+Utan branch protection finns INGEN strukturell skyddsmekanism mot Lovable-sandbox-drift (som silent-deletade design/ + docs/10 den 28 maj — se 09 §21). Auto-apply utan branch protection = oövervakade DROP TABLE-pushar är möjliga.
 
 ---
 

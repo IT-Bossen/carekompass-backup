@@ -1005,12 +1005,13 @@ Service_role-token lagras som Supabase Vault secret, inte i klartext i SQL.
 ## 12. Migrations-disciplin
 
 - **En migration per logisk ändring** (inte en stor "fas-1.sql" med 50 tabeller)
-- Filnamn: `YYYYMMDDHHMMSS_<beskrivande_snake_case>.sql`
-- Aldrig redigera en redan deployad migration — alltid ny migration
+- Filnamn: `YYYYMMDDHHMMSS_<beskrivande_snake_case>.sql` — workflow-regex `^[0-9]{14}_.*\.sql$` är obligatorisk; filer som inte matchar appliceras inte
+- Aldrig redigera en redan deployad migration — alltid ny migration (auto-apply gör äldre filer immutable så snart de står som applied i `supabase_migrations.schema_migrations`)
 - Varje migration är idempotent där möjligt (`if not exists`, `create or replace`)
 - RLS-policies som rör en tabell ligger i samma migration som tabellen skapas
+- **GRANT-mönster i varje migration som skapar tabell:** följ Lovables `<public-schema-grants>`-block — schema-grant (`GRANT USAGE ON SCHEMA public TO ...`), default-privilegier (`ALTER DEFAULT PRIVILEGES`), och per-tabell-grant (`GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated`). Utan grants får runtime-fel i Supabase REST/Realtime. (Lovables säkerhetsskanner körs **inte** på auto-applicerade migreringar — så grants är vårt ansvar, inte verifieras av plattformen.)
 - Seeds (roller, permissions, plans, industry_templates) i separata `seed_*`-migrationer
-- Migrations versionsläggs i `supabase/migrations/`, körs via `bunx supabase db push` lokalt, deployment via Supabase Dashboard eller CI
+- **Auto-apply via `.github/workflows/migration-drift-check.yml`:** push av `supabase/migrations/*.sql` till `main` triggar workflow:n som jämför filer mot `supabase_migrations.schema_migrations` på Lovable Cloud-DB:n och applicerar pending i ordning. Varje migration körs atomiskt (`BEGIN; <SQL>; INSERT version; COMMIT;`). Failed migration stoppar resten och öppnar GitHub-issue med labels `migrations`, `automated`, `failed`. PR mot main gör dry-run + listar pending i en kommentar — applicerar inget förrän merge.
 
 ---
 
