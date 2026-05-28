@@ -30,13 +30,20 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      {/* WCAG SC 2.4.1 Level A — Skip-link först i authed layout per docs/06 §8.1 */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Hoppa till huvudinnehåll
+      </a>
       <header className="border-b border-border px-6 py-4">
         <p className="font-serif text-lg text-foreground">CareKompass</p>
         <p className="text-xs text-muted-foreground">
           Fas 0 layout-skelett — AppShell levereras i Fas 1.
         </p>
       </header>
-      <main className="flex-1 p-6">
+      <main id="main-content" className="flex-1 p-6">
         <Outlet />
       </main>
     </div>
