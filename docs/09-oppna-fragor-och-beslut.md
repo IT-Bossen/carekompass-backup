@@ -179,6 +179,7 @@ Besluten nedan är redan inarbetade i respektive doc. Här som kompakt spårbar 
 | 2026-05-27 | 18 | BetterStack (sajt + backend + API-endpoints) | 06 §2.1 |
 | 2026-05-27 | 19 | GA4 consent-gated + 3-nivå cookie-banner (Fas 1), Consent Mode v2, Plausible/Fathom GDPR-backup | 06 §5.2, 08 §4.3-4.5 |
 | 2026-05-27 | 20 | Placeholder-logo Fas 0, designad logo + bildbank Fas 2-3 | – |
+| 2026-05-28 | 6b | Claude Design levererade design-artefakt med **forest-teal `oklch(0.42 0.06 175)`** + **Newsreader serif** (display) + **JetBrains Mono** (data/IDs). Beslutet **tentativt accepterat** som nuvarande best — supersederar slate-placeholder från #6 men bekräftas slutgiltigt i Fas 5. Tweak-panel finns för att byta utan kostnad. | 10 §4, §14; design/styles.css; CLAUDE.md "Design system" |
 
 ---
 

@@ -15,6 +15,7 @@ then give a clear verdict.
 - **`docs/08 §14`** for the per-area acceptance for public sites, PWA, system admin, onboarding, impersonation, PII masking.
 - **`docs/02`** + **`07 §4`** for schema/audit conventions; **`02 §8`** + **`07 §5`** for the serverFn/edge-function boundary; **`07 §2`** for the role/capability model; **`07 §2.5`** for the helper names.
 - **`docs/03 §3`** for the SSR pattern, **`§4`** for the three frontend gates; **`§6`** for design tokens.
+- **`docs/10-design-spec.md`** — **the visual ship-gate**. Verify the implementation matches `§6` translation table (`ck-btn` → `Button`, `--ck-bg` → `--background`), `§10` traceability (the route placement matches the design's expected `src/routes/_app/<module>/` target), `§7` desktop AppShell invariants (sidebar 232px, sticky 56px topbar, list→detail pattern with header card + tabs + 320px sidopanel), `§8` mobile conventions (44–56px touch targets for primary actions, sticky bottom action bar). Designs that drift from these without ADR-justification are a follow-up.
 - **`docs/06 §10`** for code style (TS strict, no `as any`); **`§12`** for error handling (`ApiResult`); **`§5`** for security; **`§9`** for i18n; **`§14`** for ADR expectations.
 - **`docs/01 §7.0`** for the ansvarsgräns.
 
