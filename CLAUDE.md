@@ -94,16 +94,12 @@ type ApiResult<T> =
 - **Generated, do NOT hand-edit:** `src/integrations/supabase/types.ts`, `client.ts`, `client.server.ts`, `auth-middleware.ts`, `auth-attacher.ts`, and `src/routeTree.gen.ts`. Schema change → regenerate types: `bunx supabase gen types typescript > src/integrations/supabase/types.ts`.
 - **Migrations (`docs/02 §12` + `06 §4`):** `supabase/migrations/<YYYYMMDDHHMMSS>_<snake_case>.sql`. **One per logical change**, new files only, additive/forward-only, idempotent where possible. RLS for a table ships in the same migration as the table. Seeds in `seed_*.sql`. Destructive changes (DROP COLUMN/TABLE, type change, enum-value removal, policy removal without replacement) require ADR + 24h cooling.
 
-## Design system (`docs/03 §6` + `docs/10`)
+## Design system (`docs/03 §6`)
 
-- **Full design spec is `docs/10-design-spec.md`** — visual tone, token system (with the v4-style `--ck-*` names + shadcn token mapping in `§6`), typography scale, component patterns, desktop + mobile layout conventions, screen → code-target traceability (`§10`), and the 9 open design decisions Toni still owns (`§14`).
-- **Design artifact lives in `design/`** at the repo root — a single-file React canvas with ~57 artboards (30 desktop + 27 mobile), the `styles.css` token source, a design-system showcase (`components/ds.jsx`), and 19 page/module components. **It's reference material — not production code.** Translate it per `docs/10 §6` (token rename + shadcn primitives + ≤150-line component split).
-- **Tokens only** in `src/styles.css` (Tailwind v4 `@theme inline` + `:root` / `.dark`). Tokens are oklch CSS custom properties.
-- **Brand color (current best):** **forest-teal `oklch(0.42 0.06 175)`** — the designer's recommendation in `docs/10 §4` + `§14`, kept as tentative default pending Fas 5 confirmation (`docs/09 §6b`). The Tweak-panel in `design/index.html` swaps it live among Forest/Nordic/Clay/Slate. The original `docs/09 §6` decision (shadcn slate placeholder) is superseded by this tentative choice.
-- **Typography:** Inter (UI / body) + Newsreader serif (display / hero / page headers) + JetBrains Mono (IDs, batch numbers, timestamps, request_id). Per `docs/10 §3`.
-- Healthcare statuses: `success` / `warning` / `destructive` / `info` (+ per-severity tokens for `critical`/`high`/`medium`/`low`). No literal `#hex`/`rgb`/`oklch` in components, no `text-white`/`bg-gray-*`. Token-based opacity is allowed.
-- Compose with `cn()` from `@/lib/utils`. **Mobile-first**, 44px tap targets (48–56px for primary on mobile), **dark mode**, **WCAG 2.1 AA** (status = icon + text + color, never color alone).
-- shadcn primitives in `src/components/ui/` — add via `bunx shadcn@latest add <name>`, don't hand-author. Map design-classes per `docs/10 §6` (`ck-btn` → `Button`, `ck-card` → `Card`, etc.).
+- **Tokens only** in `src/styles.css` (Tailwind v4 `@theme inline` + `:root` / `.dark`). Tokens are HSL/oklch CSS custom properties. **shadcn slate base + Inter font** (placeholder branding — `--primary` stays slate until real brand color is decided in Fas 5).
+- Healthcare statuses: `success` / `warning` / `destructive` / `info`. No literal `#hex`/`rgb`/`oklch` in components, no `text-white`/`bg-gray-*`. Token-based opacity (`bg-[hsl(var(--success)/0.15)]`) is allowed.
+- Compose with `cn()` from `@/lib/utils`. **Mobile-first**, 44px tap targets, **dark mode** (tokens cover `.dark`), **WCAG 2.1 AA** (status = icon + text + color, never color alone).
+- shadcn primitives in `src/components/ui/` — add via `bunx shadcn@latest add <name>`, don't hand-author. Anpassa till CK:s densitet (kompakt typografi, mindre padding).
 
 ## Conventions you must follow (`docs/06`)
 
@@ -133,11 +129,6 @@ v6 is in **Fas 0** (Bootstrap & arkitektur-fundament). See `docs/04 §2` for the
 | `docs/07-v4-mapping-and-overrides.md` | **THE OVERRIDE LAYER.** Hierarkisk rollmodell, seat-prismodell, **v4-konsistenta tabellnamn**, **two-table audit**, edge-function v4→v6 mapping, Lovable AI/Stripe/Email, hooks mapping, module template pattern, feature parity per module, migration strategy. |
 | `docs/08-public-and-admin.md` | Public marketing pages, **modulvisningar**, legal (terms/privacy/cookies/DPA), cookie consent + GA4 consent-mode, resurser/support, SEO, PWA, **CK-admin (10 flikar)**, onboarding flow (auto-trial default), **impersonation**, **PII masking**, news/status/support tickets. |
 | `docs/09-oppna-fragor-och-beslut.md` | **20/26 answered (decision log)** + 6 open 🟢-questions (pricing, sakkunnig granskning, legal, branscher beyond 3, news, compliance weights — all defaultable, block no phase). |
-| `docs/10-design-spec.md` | **Visual sanning + översättningskontrakt till kod.** Design filosofi, tokens, typografi (Inter + Newsreader + JetBrains Mono), färg (forest-teal primär), komponentmönster, **shadcn-översättningstabell (§6)**, desktop + mobile-konventioner, **skärm → kod-mål traceability (§10)**, mock-data-gränsdragning (§12), och **9 öppna designbeslut Toni äger (§14)** — forest-teal, serif display, logo, terminologi, bottom-bar layout, m.fl. |
-
-## Reference material
-
-- **`design/`** — design-artefakten som React-canvas (`index.html` + `components/` + `styles.css` + en `tweaks-panel.jsx` som byter brand-färg live). Referensmaterial, inte produktionskod. Översättning till produktion per `docs/10 §6`.
 
 ## Definition of done
 
