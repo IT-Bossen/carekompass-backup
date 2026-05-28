@@ -1,4 +1,4 @@
-name: Migration drift check
+name: Auto-apply migrations
 
 on:
   push:
@@ -19,8 +19,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  check-drift:
-    name: Check for unapplied migrations
+  apply:
+    name: Detect and apply pending migrations
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -35,15 +35,15 @@ jobs:
             exit 1
           fi
 
-      - name: Detect drift
+      - name: Detect pending migrations
         id: drift
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
-
-          # List local migration timestamps (filename prefix before first underscore)
           mkdir -p /tmp/drift
+
+          # Local: timestamp prefix of every migration file
           if [ -d supabase/migrations ]; then
             ls supabase/migrations 2>/dev/null \
               | grep -E '^[0-9]{14}_.*\.sql$' \
@@ -51,15 +51,12 @@ jobs:
               | sort -u > /tmp/drift/local.txt || true
           fi
           touch /tmp/drift/local.txt
-          echo "Local migrations:"; cat /tmp/drift/local.txt || true
 
-          # Query applied migrations from Supabase
+          # Remote: applied versions
           psql "$SUPABASE_DB_URL" -At -c \
             "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;" \
             > /tmp/drift/remote.txt
-          echo "Remote migrations:"; cat /tmp/drift/remote.txt || true
 
-          # Lines in local but not in remote
           comm -23 /tmp/drift/local.txt /tmp/drift/remote.txt > /tmp/drift/pending.txt
           pending=$(cat /tmp/drift/pending.txt)
 
@@ -73,10 +70,10 @@ jobs:
               echo "$pending"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
-            echo "⚠️ Unapplied migrations:"
-            echo "$pending"
+            echo "⚠️ Pending migrations:"; echo "$pending"
           fi
 
+      # ---- PR: dry-run only (comment, don't apply) ----
       - name: Comment on PR if drift detected
         if: github.event_name == 'pull_request' && steps.drift.outputs.has_drift == 'true'
         uses: actions/github-script@v7
@@ -85,15 +82,13 @@ jobs:
             const pending = `${{ steps.drift.outputs.pending }}`.trim().split('\n').filter(Boolean);
             const list = pending.map(p => `- \`${p}\``).join('\n');
             const body = [
-              '### ⚠️ Unapplied database migrations',
+              '### 🔍 Pending database migrations',
               '',
-              'Dessa migreringar finns i `supabase/migrations/` men är **inte applicerade** på Lovable Cloud-databasen:',
+              'Dessa migreringar kommer **auto-appliceras** på Lovable Cloud när PR:n mergeas till `main`:',
               '',
               list,
               '',
-              '**Nästa steg:** Öppna Lovable och be agenten köra de pending migreringarna via migration-toolet.',
-              '',
-              '_Posted by `migration-drift-check` workflow._',
+              '_Posted by `auto-apply-migrations` workflow._',
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -102,94 +97,105 @@ jobs:
               body,
             });
 
-      - name: Open or update issue if drift on main
-        if: github.event_name == 'push' && steps.drift.outputs.has_drift == 'true'
+      # ---- main: actually apply ----
+      - name: Apply pending migrations
+        if: github.event_name != 'pull_request' && steps.drift.outputs.has_drift == 'true'
+        id: apply
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          applied=()
+          failed=""
+
+          while IFS= read -r version; do
+            [ -z "$version" ] && continue
+            file=$(ls supabase/migrations/${version}_*.sql 2>/dev/null | head -n1 || true)
+            if [ -z "$file" ]; then
+              echo "::error::No file found for version $version"
+              failed="$version"
+              break
+            fi
+
+            echo "▶ Applying $file"
+            # Run migration + insert tracking row in a single transaction.
+            # If the SQL fails, nothing is committed and the version is NOT recorded.
+            if psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --single-transaction \
+                 -c "BEGIN;" \
+                 -f "$file" \
+                 -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('$version') ON CONFLICT DO NOTHING;" \
+                 -c "COMMIT;"; then
+              echo "✅ Applied $version"
+              applied+=("$version")
+            else
+              echo "::error::Failed to apply $version"
+              failed="$version"
+              break
+            fi
+          done < /tmp/drift/pending.txt
+
+          {
+            echo "applied<<EOF"
+            printf '%s\n' "${applied[@]:-}"
+            echo "EOF"
+            echo "failed=$failed"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -n "$failed" ]; then
+            exit 1
+          fi
+
+      - name: Open issue if apply failed
+        if: failure() && github.event_name != 'pull_request' && steps.apply.outputs.failed != ''
         uses: actions/github-script@v7
         with:
           script: |
-            const pending = `${{ steps.drift.outputs.pending }}`.trim().split('\n').filter(Boolean);
-            const list = pending.map(p => `- \`${p}\``).join('\n');
-            const title = '⚠️ Unapplied database migrations on main';
+            const failed = `${{ steps.apply.outputs.failed }}`.trim();
+            const applied = `${{ steps.apply.outputs.applied }}`.trim().split('\n').filter(Boolean);
+            const title = `❌ Migration ${failed} failed to apply`;
             const body = [
-              'Workflow `migration-drift-check` upptäckte migreringar på `main` som inte är applicerade på Lovable Cloud-databasen.',
+              `Workflow \`auto-apply-migrations\` försökte applicera migreringar på Lovable Cloud men misslyckades.`,
               '',
-              '**Pending:**',
-              list,
+              `**Failed:** \`${failed}\``,
+              applied.length ? `**Already applied (committed):**\n${applied.map(a => `- \`${a}\``).join('\n')}` : '',
               '',
               `**Commit:** ${context.sha}`,
               '',
-              '**Nästa steg:** Öppna Lovable och be agenten köra de pending migreringarna via migration-toolet. Issuen stängs automatiskt nästa gång workflowen kör grönt.',
-            ].join('\n');
+              '**Nästa steg:** Öppna Lovable, kolla migrationens SQL, rätta filen och pusha igen. Redan applicerade migreringar är permanenta (transactional per fil).',
+            ].filter(Boolean).join('\n');
 
-            for (const name of ['migrations', 'automated']) {
+            for (const name of ['migrations', 'automated', 'failed']) {
               try {
                 await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name });
               } catch {
                 await github.rest.issues.createLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name,
-                  color: name === 'migrations' ? 'fbca04' : 'ededed',
+                  owner: context.repo.owner, repo: context.repo.repo, name,
+                  color: name === 'failed' ? 'd73a4a' : name === 'migrations' ? 'fbca04' : 'ededed',
                 });
               }
             }
-
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'migrations,automated',
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title, body, labels: ['migrations', 'automated', 'failed'],
             });
 
-            if (existing.length > 0) {
-              const issue = existing[0];
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                title,
-                body,
-              });
-              console.log(`Updated existing issue #${issue.number}`);
-            } else {
-              const created = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['migrations', 'automated'],
-              });
-              console.log(`Created issue #${created.data.number}`);
-            }
-
-      - name: Close drift issue if clean on main
-        if: github.event_name == 'push' && steps.drift.outputs.has_drift == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'migrations,automated',
-            });
-            for (const issue of existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                body: `✅ Alla migreringar applicerade på ${context.sha}. Stänger automatiskt.`,
-              });
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: 'closed',
-              });
-            }
-
-      - name: Fail PR check if drift detected
-        if: github.event_name == 'pull_request' && steps.drift.outputs.has_drift == 'true'
+      - name: Summary
+        if: always()
         run: |
-          echo "::error::Unapplied migrations detected — see PR comment."
-          exit 1
+          if [ "${{ steps.drift.outputs.has_drift }}" = "false" ]; then
+            echo "### ✅ No pending migrations" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "### 🔍 Pending migrations (will apply on merge)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/drift/pending.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Migration apply result" >> "$GITHUB_STEP_SUMMARY"
+            echo "**Applied:**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ steps.apply.outputs.applied }}" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "${{ steps.apply.outputs.failed }}" ]; then
+              echo "**Failed:** \`${{ steps.apply.outputs.failed }}\`" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
