@@ -274,17 +274,18 @@ export function createApiHandler<T>(
 // I Fas 0 finns ingen profiles/permissions-tabell. Behåll signatur så server-fn
 // kan kalla den; kasta TODO-fel om någon faktiskt försöker köra den nu.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
 export interface AuthedCtx {
-  supabase: ReturnType<typeof baseRequireSupabaseAuth>["__type__"] extends infer _
-    ? unknown
-    : never;
+  supabase: SupabaseClient<Database>;
   userId: string;
   claims: Record<string, unknown>;
   requestId: string;
 }
 
 export async function requirePermission(
-  _ctx: { supabase: unknown; userId: string },
+  _ctx: AuthedCtx,
   permission: string,
   _companyId: string,
 ): Promise<void> {
@@ -294,7 +295,7 @@ export async function requirePermission(
 }
 
 export async function requireWritableSubscription(
-  _ctx: { supabase: unknown; userId: string },
+  _ctx: AuthedCtx,
   _companyId: string,
 ): Promise<void> {
   throw new SubscriptionReadOnlyError(
@@ -323,6 +324,8 @@ export async function auditLog(
 - `AuthedCtx`-typen är illustrativ i Fas 0; den faktiska context-formen kommer från middleware:n. När Fas 1 utökar context med `tenantId`/`profileId` flyttas typen hit och ersätter middleware-derived shape.
 - `requirePermission` / `requireWritableSubscription` / `auditLog` är **skelett**. Försöker man köra dem i Fas 0 får man en tydlig error med Fas-info — det är önskat (ingen ska tro att de fungerar).
 - `createApiHandler` är direkt baserad på `docs/06 §12.1`.
+
+> **Konsumtionsmönstret för `requireSupabaseAuth` är `.middleware([requireSupabaseAuth])` på `createServerFn`, inte `await requireSupabaseAuth()`.** Context (`supabase`, `userId`, `claims`) injiceras till handler via `context`-parametern. `docs/02 §8.3` visar en alternativ implementering — använd Lovable-mönstret som demonstreras i Task 9.
 
 **Dep.** Ingen (kan parallelliseras med Tasks 4–8, 11–13).
 
@@ -550,6 +553,7 @@ export async function auditLog(
 
 - Värdena är hämtade ur `design/styles.css` (`:root` + `.ck-dark`) per beslut 1 i `1.2` ovan.
 - `--success`/`--warning`/`--info` registreras i `@theme inline` så att klasser som `bg-success` / `text-warning` automatiskt fungerar i Tailwind v4. **Risk:** om shadcn-komponenter någonstans hårdkodar `bg-success`-klass utan token får de inte värdet — verifiera med `bun run build` att inga oklch-värden behöver fallback.
+  - **Verifikation:** kör `git grep -E 'bg-(success|warning|info)' src/components/ui/` — ska returnera 0 matches. Om matches finns, antingen byt komponenten till opt-in (lägg klassen i custom wrapper) eller flagga separat i validator-pass.
 - `--ring` sätts till brand-färgen så fokus-ring följer forest-teal istället för slate.
 
 **Dep.** Ingen.
@@ -752,6 +756,7 @@ function RootComponent() {
 - `<Toaster />` placeras i `RootComponent` (efter `<Outlet />`) så att alla routes — inklusive `/_app/*` och `/inspect/$token` — kan trigga toasts.
 - All synlig copy är översatt till svenska (`Sidan hittades inte`, `Försök igen`, `Till start`). Hårdkodade strängar är OK i Fas 0 eftersom `t("key")`-funktionen från `docs/06 §9.2` ännu inte finns; alla strängar **flaggas i implementations-PR** som "ska genom `t()` när i18n-helpern landar i Fas 1".
 - `createRootRouteWithContext` är behållen från befintlig kod — den fungerar med `getRouter()` i `src/router.tsx` som passar in `queryClient`.
+- `queryClient` skapas i `src/router.tsx`'s `getRouter()` och passas via `createRootRouteWithContext<{ queryClient }>`. **Skapa inte** en fil-lokal `new QueryClient()` i `__root.tsx` — det skulle bryta SSR (en client per request på server). `docs/03 §2.3`-mallen visar fil-lokal QueryClient men supersederas av befintlig `getRouter()`-mönster; doc-writer rättar `docs/03 §2.3` i sin pass (Task 14).
 
 **Dep.** Task 4 (styles.css), Task 5 (font-länkar konceptuellt — implementeras i samma fil).
 
@@ -960,6 +965,8 @@ export const getHealth = createServerFn({ method: "GET" }).handler(
 - Server-importen `@tanstack/react-start` verifierat mot `package.json` (`"@tanstack/react-start": "^1.167.50"`).
 - `startedAt` capturas vid modul-load — visar uptime per Worker-instans (vilket är userful diagnostiskt).
 - Eventuella Fas 1-modules som använder middleware kan kopiera detta mönster men byter `(): Promise<ApiResult<T>> => createApiHandler(...)` mot `.middleware([requireSupabaseAuth]).validator(...).handler(async ({ data, context }) => createApiHandler(async () => { ... })())`.
+
+> **Undantaget:** `getHealth` är publikt — ingen `requireSupabaseAuth`-middleware. Detta är den enda `createServerFn` i Fas 0 utan auth (SSR-bevis, inte affärs-data). Alla framtida `createServerFn` i Fas 1+ är middleware-guarded by default; det här mönstret kopieras endast för analoga publika endpoints (jfr `bankid-callback`/`send-contact-email` i `docs/07 §5`). Ingen separat ADR behövs — täcks av ADR 0002.
 
 **Dep.** Task 3 (`_helpers.ts` levererar `createApiHandler` + `ApiResult`). Task 1 är **inte** strikt blockerande (denna fn är ovaktad) men bör landa först så middleware-kedjan inte är trasig när hela mönstret demonstreras.
 
@@ -1244,7 +1251,7 @@ Toni Kazarian
 - **0002 — Hybrid server-fn + Edge Functions.** Context: `createServerFn` täcker 80 % av server-logik men kan inte köra Deno-bibliotek (`pdf-lib` för audit-export) eller offentliga endpoints utan JWT (BankID-callback). Decision: `docs/02 §8.1`-tabell + `docs/07 §5`-mappning.
 - **0003 — JWT-passthrough → RLS som single source of truth.** Context: alternativ var service_role-overrider med manuell auth-check. Decision: JWT vidarebefordras via `attachSupabaseAuth` → `requireSupabaseAuth` skapar RLS-respekterande klient. Endast `supabaseAdmin` för cross-tenant maintenance (server-only modules).
 - **0004 — Loader + TanStack Query hybrid SSR.** Context: alternativ var (a) loaders-only, (b) Query-only client-side, (c) RSC (ej stöd i TanStack Start). Decision: loader fetchar initial → Query tar över. Bevis-route levereras i Fas 0 (denna spec, Task 10).
-- **0005 — Tailwind v4 + shadcn slate base, forest-teal override.** Context: shadcn-mallar förutsätter `tailwind.config.ts` (v3). v4 är CSS-first. Decision: `@theme inline` i `src/styles.css`. shadcn slate som base, forest-teal override per `docs/10 §4`. **Kan markeras `Accepted` direkt.**
+- **0005 — Tailwind v4 + shadcn slate base, forest-teal override.** Context: shadcn-mallar förutsätter `tailwind.config.ts` (v3). v4 är CSS-first. Decision: `@theme inline` i `src/styles.css`. shadcn slate som base, forest-teal override per `docs/10 §4`. **Status:** `Accepted (Tailwind v4 + shadcn-arkitektur). Brand-färg forest-teal är Proposed pending Fas 5 (docs/09 §6b).`
 - **0006 — i18n: sv-default, en-future via `t()`.** Context: alternativ var (a) hårdkoda svenska, (b) react-i18next nu, (c) lazy. Decision: per `docs/06 §9` — `t()`-funktion etableras Fas 1 (när första modul har dynamisk copy), alla strängar går genom den från dag 1.
 
 **Notera.**
