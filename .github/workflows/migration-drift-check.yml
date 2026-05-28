@@ -18,9 +18,6 @@ permissions:
   issues: write
   pull-requests: write
 
-env:
-  SUPABASE_PROJECT_REF: gwmkcckkztlicbnqqklp
-
 jobs:
   check-drift:
     name: Check for unapplied migrations
@@ -29,52 +26,46 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Link project
+      - name: Verify secret
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
-            echo "::error::Missing SUPABASE_ACCESS_TOKEN or SUPABASE_DB_PASSWORD secret. Add them in repo Settings → Secrets and variables → Actions."
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Missing SUPABASE_DB_URL secret. Copy the value from Lovable → Project Settings → Cloud → Secrets (SUPABASE_DB_URL) and paste it into GitHub Settings → Secrets and variables → Actions."
             exit 1
           fi
-          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
-      - name: List migrations and detect drift
+      - name: Detect drift
         id: drift
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/drift
-          # `supabase migration list --linked` prints: Local | Remote | Time
-          supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" > /tmp/drift/list.txt 2>&1 || {
-            cat /tmp/drift/list.txt
-            echo "::error::supabase migration list failed. Check that SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD are valid."
-            exit 1
-          }
-          cat /tmp/drift/list.txt
 
-          # Parse rows of the form: "  20240101120000 |                | 2024-01-01 12:00:00"
-          # An empty Remote column (between the two pipes) = unapplied locally.
-          pending=$(awk -F'|' '
-            /^[[:space:]]*[0-9]{14}[[:space:]]*\|/ {
-              local=$1; remote=$2;
-              gsub(/[[:space:]]/, "", local);
-              gsub(/[[:space:]]/, "", remote);
-              if (local != "" && remote == "") print local;
-            }
-          ' /tmp/drift/list.txt)
+          # List local migration timestamps (filename prefix before first underscore)
+          mkdir -p /tmp/drift
+          if [ -d supabase/migrations ]; then
+            ls supabase/migrations 2>/dev/null \
+              | grep -E '^[0-9]{14}_.*\.sql$' \
+              | sed 's/_.*//' \
+              | sort -u > /tmp/drift/local.txt || true
+          fi
+          touch /tmp/drift/local.txt
+          echo "Local migrations:"; cat /tmp/drift/local.txt || true
+
+          # Query applied migrations from Supabase
+          psql "$SUPABASE_DB_URL" -At -c \
+            "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;" \
+            > /tmp/drift/remote.txt
+          echo "Remote migrations:"; cat /tmp/drift/remote.txt || true
+
+          # Lines in local but not in remote
+          comm -23 /tmp/drift/local.txt /tmp/drift/remote.txt > /tmp/drift/pending.txt
+          pending=$(cat /tmp/drift/pending.txt)
 
           if [ -z "$pending" ]; then
             echo "has_drift=false" >> "$GITHUB_OUTPUT"
-            echo "✅ All migrations are applied to remote."
+            echo "✅ All migrations applied."
           else
             echo "has_drift=true" >> "$GITHUB_OUTPUT"
             {
@@ -82,7 +73,7 @@ jobs:
               echo "$pending"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
-            echo "⚠️ Unapplied migrations detected:"
+            echo "⚠️ Unapplied migrations:"
             echo "$pending"
           fi
 
@@ -120,7 +111,7 @@ jobs:
             const list = pending.map(p => `- \`${p}\``).join('\n');
             const title = '⚠️ Unapplied database migrations on main';
             const body = [
-              'Workflow `migration-drift-check` detected migrations on `main` that have not been applied to the Lovable Cloud database.',
+              'Workflow `migration-drift-check` upptäckte migreringar på `main` som inte är applicerade på Lovable Cloud-databasen.',
               '',
               '**Pending:**',
               list,
@@ -130,14 +121,6 @@ jobs:
               '**Nästa steg:** Öppna Lovable och be agenten köra de pending migreringarna via migration-toolet. Issuen stängs automatiskt nästa gång workflowen kör grönt.',
             ].join('\n');
 
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'migrations,automated',
-            });
-
-            // Ensure labels exist (idempotent)
             for (const name of ['migrations', 'automated']) {
               try {
                 await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name });
@@ -150,6 +133,13 @@ jobs:
                 });
               }
             }
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'migrations,automated',
+            });
 
             if (existing.length > 0) {
               const issue = existing[0];
@@ -188,7 +178,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `✅ All migrations now applied as of ${context.sha}. Closing automatically.`,
+                body: `✅ Alla migreringar applicerade på ${context.sha}. Stänger automatiskt.`,
               });
               await github.rest.issues.update({
                 owner: context.repo.owner,
