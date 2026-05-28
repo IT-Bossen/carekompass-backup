@@ -10,13 +10,24 @@ import { requireSupabaseAuth as baseRequireSupabaseAuth } from "@/integrations/s
 import type { Database } from "@/integrations/supabase/types";
 
 // ----- ApiResult -----
+// JsonValue används istället för `unknown` i meta-fältet eftersom TanStack Start
+// validerar att server-fn returvärden är JSON-serializable vid compile-time —
+// `unknown` accepteras inte. JsonValue är ekvivalent uttrycks-mässigt men typsäker.
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 export type ApiResult<T> =
   | {
       ok: true;
       data: T;
       request_id: string;
-      meta?: Record<string, unknown>;
+      meta?: Record<string, JsonValue>;
     }
   | {
       ok: false;
@@ -103,9 +114,7 @@ export interface AuthedCtx {
 // aldrig kastar till klienten. Kastade ForbiddenError/ValidationError/etc.
 // mappas till maskinläsbar error_code som translateError() (Fas 1) använder.
 
-export function createApiHandler<T>(
-  fn: () => Promise<T>,
-): () => Promise<ApiResult<T>> {
+export function createApiHandler<T>(fn: () => Promise<T>): () => Promise<ApiResult<T>> {
   return async () => {
     const request_id = crypto.randomUUID();
     try {
