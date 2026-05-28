@@ -51,30 +51,32 @@ Ungefär 16–20 veckor från Fas 0-start till feature-paritet med v4.0 + alla n
 
 **Längd:** 1–2 veckor.
 
+> **Status: ✅ Levererad** (commit `36cc07e`, 2026-05-28). Alla AC1–AC6 met. Se `docs/09 §24`.
+
 ### 2.1 Innehåll
 
 - Konfigurera tomma Lovable-projektet (TanStack Start, Lovable Cloud Supabase)
 - Tailwind v4 + shadcn/ui-installation (verifiera Tailwind v4-kompatibilitet med shadcn)
 - bun lockfile, scripts
-- `src/styles/app.css` med `@theme inline`-block
-- Genererade typer: `bunx supabase gen types typescript > src/types/supabase.ts` + script i package.json
-- `src/lib/supabase.client.ts` (browser) + `src/lib/supabase.server.ts` (SSR-factory)
-- `src/lib/_helpers.ts` — `requireSupabaseAuth`, `requirePermission`, `requireWritableSubscription`, `auditLog`, `createApiResult` (standardiserat svar)
-- Root layout (`__root.tsx`) med QueryClient, Toaster, ThemeProvider
+- `src/styles.css` med `@theme inline`-block (forest-teal + healthcare-tokens; se `docs/09 §6b`)
+- Genererade typer: `bunx supabase gen types typescript > src/integrations/supabase/types.ts` + script i package.json (Lovable Cloud genererar `src/integrations/supabase/*` — vi wrappar dem i `src/lib/_helpers.ts`)
+- Supabase-klienter: `src/integrations/supabase/client.ts` (browser) + `src/integrations/supabase/client.server.ts` (SSR-factory) — Lovable-generated, ej hand-redigera
+- `src/lib/_helpers.ts` — `requireSupabaseAuth`, `requirePermission`, `requireWritableSubscription`, `auditLog`, `createApiHandler` (standardiserat `ApiResult`-svar)
+- Root layout (`__root.tsx`) med QueryClient, Toaster (ingen ThemeProvider i Fas 0 — Tailwind v4 dark-mode via `.dark`-klass räcker)
 - Authed layout (`_app.tsx`) med skeleton för Sidebar + Topbar + ClinicSwitcher (dummy-data ok)
 - Public layout-routes: `/login`, `/signup`, `/accept-invite/$token`
 - Inspector layout-route: `/inspect/$token` (skeleton)
 - Verifiera SSR fungerar: en `/health`-route som loadar via `createServerFn` och visar timestamp från servern
-- CI: GitHub Actions (eller Lovable native) — `bun typecheck`, `bun build`, ev. `bun test`
+- CI: GitHub Actions — `bun typecheck`, `bun build` (observability defer:at till Fas 1, se steg 10)
 
 ### 2.2 Acceptance
 
-- [ ] `bun dev` startar utan fel
-- [ ] `/health` SSR:as och visar server-renderad data
-- [ ] `bunx supabase gen types typescript` ger fil utan diff
-- [ ] `bun typecheck` är grön (strict mode)
-- [ ] En enkel `createServerFn` kan anropas från en route loader och från en komponent via TanStack Query med samma queryKey
-- [ ] shadcn `<Button>` renderar med rätt design tokens
+- [x] `bun dev` startar utan fel
+- [x] `/health` SSR:as och visar server-renderad data
+- [x] `bunx supabase gen types typescript` ger fil utan diff
+- [x] `bun typecheck` är grön (strict mode)
+- [x] En enkel `createServerFn` kan anropas från en route loader och från en komponent via TanStack Query med samma queryKey
+- [x] shadcn `<Button>` renderar med rätt design tokens
 
 ### 2.3 Claude Code-prompt (kopiera direkt)
 
@@ -100,36 +102,37 @@ Viktiga beslut som gäller (från 09):
 
 Implementera Fas 0 (endast fundament — inga moduler, inget domän-schema):
 
-1. Verifiera befintlig scaffolding: bekräfta TanStack Start v1, Vite 7, bun, Tailwind v4,
+1. ✅ Verifiera befintlig scaffolding: bekräfta TanStack Start v1, Vite 7, bun, Tailwind v4,
    shadcn/ui och Lovable Cloud-Supabase-koppling. Rapportera vad som finns innan du ändrar.
-2. Konfigurera shadcn med slate base color (`bunx shadcn@latest init` → Slate) och verifiera
-   att src/styles/app.css har slate-tokens enligt 03 §6.1. Font: Inter.
-3. Installera shadcn/ui-primitives: button, input, dialog, dropdown-menu, sonner (toast),
+2. ✅ Konfigurera shadcn med slate base color som grund, sedan forest-teal-override i
+   src/styles.css (beslut 09 §6b). Font: Inter + Newsreader + JetBrains Mono (docs/10 §3).
+3. ✅ Installera shadcn/ui-primitives: button, input, dialog, dropdown-menu, sonner (toast),
    card, badge, tabs, form, command.
-4. Skapa src/lib/_helpers.ts med requireSupabaseAuth, requirePermission,
-   requireWritableSubscription, auditLog och createApiResult enligt 02 §8.3 + §9.
-5. Skapa src/lib/supabase.client.ts och src/lib/supabase.server.ts (SSR-factory).
-6. Skapa src/routes/__root.tsx enligt 03 §2.3 och src/routes/_app.tsx enligt 03 §2.2
-   (dummy session/context just nu).
-7. Skapa src/routes/health.tsx som SSR:ar en createServerFn-anropad server-timestamp
+4. ✅ Skapa src/lib/_helpers.ts med requireSupabaseAuth, requirePermission,
+   requireWritableSubscription, auditLog och createApiHandler enligt 02 §8.3 + §9.
+   ApiResult.meta använder `Record<string, JsonValue>` (inte `unknown`) — se CLAUDE.md "Architecture".
+5. ✅ Supabase-klienter finns i src/integrations/supabase/client.ts (browser) +
+   src/integrations/supabase/client.server.ts (SSR-factory) — Lovable-generated.
+   src/lib/supabase.client.ts / supabase.server.ts skapas INTE — vi wrappar via _helpers.ts.
+6. ✅ Skapa src/routes/__root.tsx och src/routes/_app.tsx (dummy session/context).
+7. ✅ Skapa src/routes/health.tsx som SSR:ar en createServerFn-anropad server-timestamp
    (bevisar att SSR + createServerFn + loader-mönstret fungerar enligt 03 §3).
-8. Skapa skeleton-routes: login.tsx, signup.tsx, accept-invite.$token.tsx, inspect.$token.tsx.
-9. Etablera mönstret "loader anropar createServerFn → komponent får initialData → TanStack
+8. ✅ Skapa skeleton-routes: login.tsx, signup.tsx, accept-invite.$token.tsx, inspect.$token.tsx.
+9. ✅ Etablera mönstret "loader anropar createServerFn → komponent får initialData → TanStack
    Query tar över" på health-routen så det kan kopieras i alla moduler. (03 §3)
-10. Sätt upp observability-grund (06 §2.1, alla i Fas 1 men initiera nu): Sentry-SDK (client +
-    server) med PII-strip enligt 06 §2.2. BetterStack-probe mot /health. Lägg INTE in GA4 ännu
-    — det kommer med cookie-consent-bannern i Fas 1 (08 §4.3-4.5).
-11. Lägg till package.json-scripts: "gen-types" (bunx supabase gen types typescript >
-    src/types/supabase.ts), "typecheck", "test".
-12. Sätt upp .github/workflows/ci.yml: bun install, bun typecheck, bun build.
-13. Skapa docs/decisions/ med de första ADR:erna enligt 06 §14.3 (0001-0006).
+10. ⏭ DEFER till Fas 1: Sentry-SDK + BetterStack (beslut 09 §17-19). Fas 0 etablerar ingen
+    observability-infra. GA4 utelämnas även i Fas 1 tills cookie-consent-banner är klar (08 §4.3-4.5).
+11. ✅ Lägg till package.json-scripts: "gen-types" (bunx supabase gen types typescript >
+    src/integrations/supabase/types.ts), "typecheck". ("test" defer:as tills vitest installeras i Fas 1.)
+12. ✅ Sätt upp .github/workflows/ci.yml: bun install, bun typecheck, bun build.
+13. ✅ Skapa docs/decisions/ med de första ADR:erna enligt 06 §14.3 (0001-0006).
 
 Inga moduler, inget domän-databas-schema, ingen GA4, ingen auth-logik utöver skeleton i Fas 0.
 Allt det kommer i Fas 1.
 
 Acceptance (04 §2.2): `bun dev` startar; /health SSR:ar server-renderad timestamp;
-`bun typecheck` grön (strict); shadcn <Button> renderar med slate-tokens; en createServerFn
-kan anropas från både route-loader och komponent via samma queryKey.
+`bun typecheck` grön (strict); shadcn <Button> renderar med forest-teal-tokens (oklch(0.42 0.06 175),
+beslut 09 §6b); en createServerFn kan anropas från både route-loader och komponent via samma queryKey.
 
 Rapportera när varje delsteg är klart innan du fortsätter till nästa. Visa diff för varje
 större fil. Eskalera om scaffolding avviker från antagandena ovan, eller om Tailwind v4 /

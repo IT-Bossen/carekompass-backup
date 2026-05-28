@@ -6,7 +6,20 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  {
+    // Exclude generated / Lovable-scaffolded files from lint.
+    // These are auto-regenerated (src/integrations/supabase/* on schema changes via `bunx supabase gen types`;
+    // src/components/ui/* via `bunx shadcn@latest add`; routeTree.gen.ts on every dev/build).
+    // Hand-formatting them would drift on next regen. Per test-verifier + docs/06 §4 convention.
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      "src/integrations/supabase/**",
+      "src/components/ui/**",
+      "src/routeTree.gen.ts",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

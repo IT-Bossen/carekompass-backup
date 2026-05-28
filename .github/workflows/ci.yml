@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint + Typecheck + Build
+    runs-on: ubuntu-latest
+    env:
+      # Dummy-värden räcker — Vite ersätter dem vid build-tid och Supabase-klienten
+      # gör inga faktiska anrop under bygget. Riktiga värden sätts i runtime-env
+      # (Cloudflare Workers secrets / staging/prod).
+      VITE_SUPABASE_URL: https://dummy.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: dummy_key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build

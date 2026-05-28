@@ -45,7 +45,7 @@ Resten av 01-06 gäller oförändrat.
 | v4 | v6 | Anmärkning |
 |---|---|---|
 | React 18 + Vite 5 + Tailwind v3 + React Router | React 19 + TanStack Start + Vite 7 + Tailwind v4 + filbaserad routing | Stack-byte |
-| `src/integrations/supabase/client.ts` | `src/lib/supabase.client.ts` + `src/lib/supabase.server.ts` | Klient + server-factory |
+| `src/integrations/supabase/client.ts` | `src/integrations/supabase/client.ts` (browser) + `src/integrations/supabase/client.server.ts` (SSR) — Lovable-generated, ompacketeras via `src/lib/_helpers.ts` | Klient + server-factory |
 | 26 Edge Functions | Hybrid: `createServerFn` (~80%) + Edge Functions (~20%) | Se §5 |
 | 17 hooks i `src/hooks/` | Liknande set, anpassad mot TanStack Start | Se §6 |
 | `src/pages/modules/` med React.lazy | `src/routes/_app/<module>/` med native route-splitting | Se 03 §2 |
@@ -55,7 +55,7 @@ Resten av 01-06 gäller oförändrat.
 | `compliance_exports` | Behålls som tabell, körs via Edge Function | Se 04 Fas 5 |
 | `module_audit_logs` med `action='deviation.*'` | Behåll mönstret | §4 nedan |
 | `subscription_plans`, `plan_features`, `company_modules` | Översätts till `plans`, `plan_feature_defaults`, `company_features` (02 §4) | Bibehåll konceptet, byt namn för konsekvens med v6-konventioner |
-| Static i `tailwind.config.ts` | `@theme inline` i `app.css` | Tailwind v4-syntax |
+| Static i `tailwind.config.ts` | `@theme inline` i `src/styles.css` | Tailwind v4-syntax |
 
 ---
 

@@ -65,10 +65,16 @@ src/
 │   └── _admin/                       # CK-admin (intern), separat layout & guard
 │       └── ...
 │
+├── integrations/
+│   └── supabase/                     # Lovable-generated — ALDRIG redigera manuellt
+│       ├── types.ts                  # genererad: bunx supabase gen types typescript
+│       ├── client.ts                 # Browser-klient
+│       ├── client.server.ts          # Server-klient factory (SSR)
+│       ├── auth-middleware.ts        # requireSupabaseAuth middleware
+│       └── auth-attacher.ts          # Bearer-token attacher (client-side)
+│
 ├── lib/
-│   ├── _helpers.ts                   # requireSupabaseAuth, requirePermission, auditLog
-│   ├── supabase.client.ts            # Browser-klient
-│   ├── supabase.server.ts            # Server-klient factory (SSR)
+│   ├── _helpers.ts                   # createApiHandler, requirePermission, auditLog (wrappar auth-middleware)
 │   ├── deviations.functions.ts       # createServerFn per modul
 │   ├── documents.functions.ts
 │   ├── medications.functions.ts
@@ -101,11 +107,7 @@ src/
 │   ├── useSubscriptionStatus.ts
 │   └── useRealtimeChannel.ts
 │
-├── styles/
-│   └── app.css                       # Tailwind v4 entry + @theme inline
-│
-└── types/
-    └── supabase.ts                   # genererad: bunx supabase gen types typescript
+└── styles.css                        # Tailwind v4 entry + @theme inline (på rot-nivå i src/)
 ```
 
 ---
@@ -181,7 +183,7 @@ import { Meta, Scripts } from "@tanstack/start"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Toaster } from "~/components/ui/sonner"
 import { ThemeProvider } from "~/components/app/ThemeProvider"
-import appCss from "~/styles/app.css?url"
+import appCss from "~/styles.css?url"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -501,23 +503,20 @@ export function useRealtimeChannel(opts: {
 
 ## 6. Tailwind v4 + design system
 
-> **Branding-beslut (09 §fråga 6):** v6.0 använder **shadcn `slate` base color + Inter** tills riktig branding är klar. Logo är placeholder. Custom brand-färg kan retrofittas i Fas 5 utan stora ändringar genom att byta `--primary`-tokens. Använd inte handgjorda blå-tokens.
+> **Branding (09 §6b, levererat i Fas 0):** v6.0 använder **forest-teal `oklch(0.42 0.06 175)`** som primärt brand-token, tentativt bekräftat av designer och accepterat som default pending Fas 5-konfirmering. Shadcn-token-**namnen** (`--primary`, `--background`, …) är oförändrade — bara **värdena** är bytta från slate till forest-teal-paletten. Se `docs/10 §4 + §14` och `docs/09 §6b`. Logo är fortfarande placeholder.
 
 ### 6.1 Setup
 
-Tailwind v4 har **inte** `tailwind.config.js`. Initiera shadcn med slate base color:
-
-```bash
-bunx shadcn@latest init    # välj: base color = Slate
-```
-
-Det genererar `src/styles/app.css` med shadcn slate-tokens. Konfiguration sker i CSS via `@theme` + `:root`/`.dark`:
+Tailwind v4 har **inte** `tailwind.config.js`. Token-konfiguration sker i `src/styles.css` via `@theme inline` + `:root`/`.dark`. **Filen heter `src/styles.css`** (direkt under `src/`) — inte `src/styles/app.css`.
 
 ```css
-/* src/styles/app.css — shadcn slate defaults (oklch), genererade av shadcn init */
-@import "tailwindcss";
+/* src/styles.css — forest-teal primär (tentativ), shadcn-token-namn intakta */
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
 
 @theme inline {
+  /* Shadcn-standard token-namn — alla shadcn-primitiver mappar automatiskt */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
@@ -534,62 +533,37 @@ Det genererar `src/styles/app.css` med shadcn slate-tokens. Konfiguration sker i
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
-  /* CK-tillägg utöver shadcn-standard (status-färger för moduler) */
+  /* CK healthcare-tokens (utöver shadcn-standard) */
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
 
-  --font-sans: "Inter", system-ui, sans-serif;
+  /* Typografi (docs/10 §3) */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);            /* slate-900 */
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-
-  /* CK status-färger */
-  --success: oklch(0.60 0.14 152);
-  --warning: oklch(0.80 0.13 90);
-}
-
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.984 0.003 247.858);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --success: oklch(0.65 0.14 152);
-  --warning: oklch(0.82 0.13 90);
+  /* Surfaces — warm off-whites */
+  --background: oklch(0.985 0.005 80);
+  --foreground: oklch(0.22 0.015 60);
+  /* Brand — forest-teal */
+  --primary: oklch(0.42 0.06 175);
+  --primary-foreground: oklch(0.985 0.005 175);
+  /* … fulla värden i src/styles.css … */
 }
 ```
 
-**Notera:** `--primary` i slate är en mörk slate (nära svart-blå), inte en mättad blå. Det ger en lugn, klinisk, neutral grundton — passar CK:s positionering. När riktig brand-färg bestäms byts endast `--primary` + `--primary-foreground` (och ev. `--ring`).
+**Princip:** Shadcn-token-namnen (`--primary`, `--background`, ...) är oförändrade — alla 44 shadcn-primitiver fungerar utan modifikation. Värdena är forest-teal-palettens oklch-värden. För att byta brand-färg i framtiden räcker det att ändra `--primary` + `--primary-foreground` (och `--ring`). Litterala `#hex`/`rgb`/`oklch` i komponentfiler är **förbjudet** — använd alltid tokens.
 
 ### 6.2 Designprinciper
 
@@ -772,7 +746,7 @@ Route: `src/routes/inspect.$token.tsx` — egen layout, ingen `_app`-wrapping.
 
 ## 15. Nyckelprinciper (sammanfattning)
 
-- **Genererade typer**: `bunx supabase gen types typescript > src/types/supabase.ts` — aldrig manuella `as any`
+- **Genererade typer**: `bunx supabase gen types typescript > src/integrations/supabase/types.ts` — aldrig manuella `as any`; filen är Lovable-generated och ska **inte** redigeras manuellt
 - **Loaders för initial-load (SSR), Query för interaktivitet** — standardmönster, etableras Fas 0
 - **Feature flag + permission + subscription** — tre lager av frontend-gate som speglas backend
 - **Zod-schema delas mellan klient och server** — ett schema, en sanning
