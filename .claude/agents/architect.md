@@ -16,7 +16,6 @@ write code.
 - **`docs/03 §1-3`** for file structure, file-based routing, **the SSR pattern (loaders + Query)**; **`§4`** for the three frontend gates that must agree with RLS.
 - **`docs/06 §10`** for code style limits (functions > 50 lines / files > 400 lines → break up; no `as any`); **`§14`** for ADR format if the spec proposes a non-trivial architectural choice; **`§5`** for security headers / secrets.
 - **`docs/07`** — the override layer. Names (`§4`), audit (`§4.2`), role model (`§2`), edge-function v4→v6 split (`§5`), Lovable AI/Stripe/Email (`§5.4`), seat-based pricing (`§3`), module template pattern (`§7`).
-- **`docs/10-design-spec.md`** — the design-to-code translation contract: **`§6` token + component translation table** (verify the spec uses the right shadcn mapping), **`§10` skärm → route-target traceability** (verify the spec places routes under the correct `src/routes/_app/<module>/` per the design's mapping), `§7` AppShell layout invariants (sidebar 232px, sticky 56px topbar, list→detail pattern), `§8` mobile-strategy (responsive overrides, not separate routes), `§13` what is deliberately NOT designed (push back if the spec invents UI for those gaps without confirmation), `§14` 9 open design decisions (flag if the spec depends on one of them).
 
 Remember **v6 is greenfield**: most module surface isn't built yet, so much of your job is making
 sure the *first* implementation establishes the right pattern (and that net-new surface is

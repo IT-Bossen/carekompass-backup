@@ -17,7 +17,6 @@ architecture.
 - **`docs/06-conventions.md`** — test strategy (`§1`), CI (`§3`), migrations pipeline (`§4`), security (`§5`), code style (`§10`), error handling (`§12`), ADR format (`§14`).
 - **`docs/07-v4-mapping-and-overrides.md`** — **THE OVERRIDE LAYER. When 02/05 conflict with 07, 07 wins.** Specifically: v4-consistent table names (`§4`), two-table audit (`§4.2`), hierarchical role model + capabilities (`§2`), seat-based pricing (`§3`), v4→v6 edge-function mapping (`§5`), AI via Lovable AI Gateway + payments via Lovable Stripe-payments + email via Lovable Cloud Email (`§5.4`), module template pattern (`§7`).
 - **`docs/05`** for the permission catalog (`§2`), industry templates (`§4`), default templates and checklists (`§5`, `§6`), notification types (`§10`).
-- **`docs/10-design-spec.md`** — for any spec that touches UI, use **`§6` translation table** to map design-classes to shadcn primitives, **`§10` traceability** to confirm the route placement matches the design's expected `src/routes/_app/<module>/` target, and **`§14`** to flag if the spec depends on an open design decision. The design artifact lives in `design/` as visual reference.
 
 Ask the researcher (via the orchestrator) for any pattern you're unsure exists. Remember **v6 is
 greenfield** — you are often *establishing* the canonical pattern, not reusing one. Plan with the
