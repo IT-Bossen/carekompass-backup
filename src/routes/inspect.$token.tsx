@@ -19,9 +19,7 @@ function InspectPage() {
       <main className="flex flex-1 items-center justify-center px-4">
         <div className="w-full max-w-md space-y-4 text-center">
           <h1 className="font-serif text-3xl text-foreground">Inspektörsläge</h1>
-          <p className="text-sm text-muted-foreground">
-            Inspector mode kommer i Fas 5.
-          </p>
+          <p className="text-sm text-muted-foreground">Inspector mode kommer i Fas 5.</p>
           <p className="font-mono text-xs text-muted-foreground">
             <span className="sr-only">Inspektionskod: </span>
             token: {token}
